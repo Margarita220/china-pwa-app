@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <title>Кастомный ИИ-переводчик | М. Волкова</title>
+  <style>
+    body { background-color: #0d0d0d; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 15px; display: flex; justify-content: center; align-items: center; min-height: 95vh; }
+    .container { background: #161616; border-radius: 20px; padding: 25px; width: 100%; max-width: 650px; box-shadow: 0 15px 35px rgba(0,0,0,0.7); border: 1px solid #262626; box-sizing: border-box; }
+    h2 { color: #ff5722; text-align: center; margin-top: 0; font-size: 24px; letter-spacing: 0.5px; }
+    .direction-panel { display: flex; align-items: center; justify-content: center; gap: 15px; background: #222; padding: 12px; border-radius: 12px; margin-bottom: 20px; }
+    .lang-label { font-weight: bold; font-size: 16px; color: #bbb; }
+    .lang-label.active { color: #ff5722; }
+    .swap-btn { background: #333; border: 1px solid #444; color: #fff; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .swap-btn:hover { background: #ff5722; border-color: #ff5722; }
+    .voice-btn { width: 100%; padding: 15px; background: #2196f3; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 15px; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .voice-btn.recording { background: #f44336; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+    #status { text-align: center; font-size: 14px; color: #ff9800; min-height: 20px; margin-bottom: 15px; font-weight: 500; }
+    textarea { width: 100%; height: 120px; background: #222; color: #fff; border: 1px solid #3a3a3a; border-radius: 12px; padding: 14px; font-size: 16px; box-sizing: border-box; resize: none; -webkit-appearance: none; }
+    textarea:focus { outline: none; border-color: #ff5722; }
+    .btn-submit { width: 100%; background: #4caf50; color: #fff; padding: 16px; border: none; border-radius: 12px; font-size: 17px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 15px; }
+    .output-box { background: #1c1a1a; border: 1px solid #2d2a2a; border-radius: 12px; min-height: 120px; padding: 14px; font-size: 16px; color: #4caf50; white-space: pre-wrap; box-sizing: border-box; margin-top: 20px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>ИИ-переводчик ВЭД & Туризм</h2>
+  
+  <div class="direction-panel">
+    <span id="lbl-source" class="lang-label active">Китайский (中文)</span>
+    <button class="swap-btn" onclick="toggleDirection()">➔</button>
+    <span id="lbl-target" class="lang-label">Русский (RU)</span>
+  </div>
+
+  <button id="voice-trigger" class="voice-btn">🎙 Нажмите, чтобы говорить</button>
+  <div id="status"></div>
+  
+  <textarea id="input-text" placeholder="Введите текст или надиктовывайте голос..."></textarea>
+  
+  <div class="examples-title" style="font-size:14px; color:#888; margin:15px 0 8px 0;">Экспериментальные примеры:</div>
+  <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
+    <button style="background:#1f1f1f; border:1px solid #333; padding:8px 12px; border-radius:6px; font-size:13px; cursor:pointer; text-align:left; color:#ccc;" onclick="loadExample('表达一下我们想做这单生意的诚意，我们可以给你挤一点水份。', 'zh-ru')"><b>[Ловушка ВЭД]:</b> 表达一下我们想做这单生意的诚意，我们可以给你挤一点水份。</button>
+    <button style="background:#1f1f1f; border:1px solid #333; padding:8px 12px; border-radius:6px; font-size:13px; cursor:pointer; text-align:left; color:#ccc;" onclick="loadExample('我去吃土了。', 'zh-ru')"><b>[Сленг]:</b> 我去吃土了。</button>
+  </div>
+
+  <button class="btn-submit" onclick="runTranslation()">Выполнить перевод по контексту</button>
+  
+  <div id="output-text" class="output-box">Здесь появится готовый перевод...</div>
+</div>
+
+<script>
+  let currentDirection = "zh-ru", mediaRecorder, audioChunks = [], isRecording = false;
+  const txtInput = document.getElementById('input-text'), txtOutput = document.getElementById('output-text'), lblStatus = document.getElementById('status'), voiceBtn = document.getElementById('voice-trigger');
+  
+  function toggleDirection() { if (currentDirection === "zh-ru") setDirection("ru-zh"); else setDirection("zh-ru"); }
+  
+  function setDirection(dir) { 
+    currentDirection = dir; 
+    const s = document.getElementById('lbl-source'), t = document.getElementById('lbl-target'); 
+    if (dir === "zh-ru") { 
+      s.innerText = "Китайский (中文)"; s.classList.add('active'); t.innerText = "Русский (RU)"; t.classList.remove('active'); 
+      txtInput.placeholder = "Введите китайский текст или надиктовывайте голос...";
+    } else { 
+      s.innerText = "Русский (RU)"; s.classList.add('active'); t.innerText = "Китайский (中文)"; t.classList.remove('active'); 
+      txtInput.placeholder = "Введите русский текст для перевода...";
+    } 
+    txtOutput.innerText = "Здесь появится готовый перевод...";
+  }
+
+  function loadExample(text, dir) { setDirection(dir); txtInput.value = text; }
+
+  // Прямой захват микрофона мобильного устройства
+  voiceBtn.addEventListener('click', async function() {
+    if (!isRecording) {
+      audioChunks = [];
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = e => { audioChunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+          const reader = new FileReader();
+          reader.readAsDataURL(audioBlob); 
+          reader.onloadend = function() {
+            const base64Audio = reader.result.split(',')[1];
+            lblStatus.innerText = "⏳ Модель Whisper распознает аудиопоток...";
+            lblStatus.style.color = "#ff9800";
+            
+            fetch('/api/voice', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ base64Audio })
+            })
+            .then(res => res.json())
+            .then(data => {
+              if (data.text) {
+                txtInput.value = data.text;
+                lblStatus.innerText = "Речь успешно переведена в текст!";
+                lblStatus.style.color = "#4caf50";
+              } else { lblStatus.innerText = "Ошибка распознавания."; lblStatus.style.color = "#f44336"; }
+            })
+            .catch(() => { lblStatus.innerText = "Сбой связи с сервером."; lblStatus.style.color = "#f44336"; });
+          }
+        };
+        mediaRecorder.start(); isRecording = true;
+        voiceBtn.innerText = "⏹ Остановить запись и перевести"; voiceBtn.classList.add('recording');
+        lblStatus.innerText = "🔴 Микрофон активен. Говорите..."; lblStatus.style.color = "#f44336";
+      } catch (err) { lblStatus.innerText = "Ошибка: Предоставьте доступ к микрофону в браузере."; lblStatus.style.color = "#f44336"; }
+    } else {
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      isRecording = false;
+      voiceBtn.innerText = "🎙 Нажмите, чтобы говорить"; voiceBtn.classList.remove('recording');
+    }
+  });
+
+  function runTranslation() {
+    const text = txtInput.value.trim();
+    if (!text) { txtOutput.innerText = "Введите текст."; txtOutput.style.color = "#f44336"; return; }
+    txtOutput.innerText = "Скачиваю листы таблицы и анализирую глоссарий..."; txtOutput.style.color = "#ff9800";
+    
+    fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, direction: currentDirection })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.translation) { txtOutput.innerText = data.translation; txtOutput.style.color = "#4caf50"; }
+      else { txtOutput.innerText = "Ошибка ИИ."; txtOutput.style.color = "#f44336"; }
+    })
+    .catch(() => { txtOutput.innerText = "Сбой сети."; txtOutput.style.color = "#f44336"; });
+  }
+</script>
+</body>
+</html>
