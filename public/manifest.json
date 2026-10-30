@@ -1,0 +1,12 @@
+{
+  "short_name": "ИИ-Переводчик",
+  "name": "Кастомный ИИ-Переводчик ВЭД & Туризм",
+  "icons": [
+    { "src": "https://flaticon.com", "type": "image/png", "sizes": "512x512" }
+  ],
+  "start_url": "/",
+  "background_color": "#0d0d0d",
+  "theme_color": "#ff5722",
+  "display": "standalone",
+  "orientation": "portrait"
+}
